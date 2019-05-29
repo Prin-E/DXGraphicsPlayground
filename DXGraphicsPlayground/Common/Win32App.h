@@ -22,6 +22,10 @@ public:
 	// Window procedure
 	int messageLoop();
 
+	// Renderer
+	RendererBase* getRenderer() const { return _renderer.get(); }
+	void setRenderer(RendererBase* newRenderer);
+
 protected:
 	static LRESULT CALLBACK staticWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	virtual LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);

@@ -5,9 +5,12 @@
 
 Win32App::Win32App(string& newTitle) :
 	_title(newTitle), _hWnd(NULL), _renderThread(NULL), _renderer(NULL) {
+	// set console encoding as UTF8
+	SetConsoleOutputCP(CP_UTF8);
 }
 
 Win32App::~Win32App() {
+	_renderer.reset();
 }
 
 HWND Win32App::createWindow(int width, int height) {
@@ -66,6 +69,7 @@ int Win32App::messageLoop() {
 }
 
 LRESULT CALLBACK Win32App::staticWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	// find application object and call app-specific procedure.
 	Win32App* app = reinterpret_cast<Win32App*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 	if (app != nullptr) {
 		return app->wndProc(hWnd, msg, wParam, lParam);
@@ -78,7 +82,7 @@ LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 	case WM_PAINT:
 	{
 		if (_renderer != nullptr) {
-			_renderer->update(0.0166);
+			_renderer->update(0.0166f);
 			_renderer->render();
 		}
 		return 0;
@@ -97,3 +101,6 @@ LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
+void Win32App::setRenderer(RendererBase* newRenderer) {
+	_renderer.reset(newRenderer);
+}
