@@ -1,10 +1,12 @@
 #pragma once
 
+#include <Windows.h>
+
 // Renderer base class
 class RendererBase
 {
 public:
-	RendererBase() {}
+	RendererBase() : _hWnd(0) {}
 	virtual ~RendererBase() {}
 
 	HWND getHWnd() const { return _hWnd; }

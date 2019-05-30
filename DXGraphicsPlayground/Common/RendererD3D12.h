@@ -42,11 +42,8 @@ private:
 
 	// Member variables
 private:
-	// window handle
-	HWND _hWnd;
-
 	// constants
-	static constexpr int kFrameCount = 2;
+	static constexpr int kFrameCount = 3;
 
 	// Device
 	ComPtr<IDXGIFactory4> _factory;
@@ -55,11 +52,15 @@ private:
 
 	// Queue
 	ComPtr<ID3D12CommandQueue> _queue;
-	ComPtr<ID3D12CommandAllocator> _renderCommandAllocator;
+	ComPtr<ID3D12CommandAllocator> _renderCommandAllocators[kFrameCount];
+	ComPtr<ID3D12GraphicsCommandList> _renderCommandLists[kFrameCount];
 
 	// Swap chain
 	ComPtr<IDXGISwapChain3> _swapChain;
 	ComPtr<ID3D12Resource> _backBuffers[kFrameCount];
 	ComPtr<ID3D12DescriptorHeap> _renderTargetViewHeap;
+	ComPtr<ID3D12Fence> _fence;
+	HANDLE _fenceEvent;
+	UINT64 _fenceValues[kFrameCount];
 	int _currentFrameIndex;
 };
