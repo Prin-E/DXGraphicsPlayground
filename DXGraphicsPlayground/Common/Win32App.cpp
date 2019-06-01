@@ -36,15 +36,12 @@ HWND Win32App::createWindow(int width, int height) {
 
 	DWORD dwStyle = WS_OVERLAPPEDWINDOW;
 	DWORD dwExStyle = WS_EX_WINDOWEDGE;
-	HWND hWnd = CreateWindowEx(dwExStyle, className, className, dwStyle, 0, 0, width, height, NULL, NULL, wndClass.hInstance, NULL);
+	HWND hWnd = CreateWindowEx(dwExStyle, className, className, dwStyle, 0, 0, width, height, NULL, NULL, wndClass.hInstance, this);
 
 	// align window center
 	int screenWidth = GetSystemMetrics(SM_CXSCREEN);
 	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 	SetWindowPos(hWnd, NULL, (screenWidth - width) / 2, (screenHeight - height) / 2, width, height, 0);
-
-	// additional data for window procdeure
-	SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)this);
 
 	_hWnd = hWnd;
 	return hWnd;
@@ -78,11 +75,23 @@ LRESULT CALLBACK Win32App::staticWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPA
 	if (app != nullptr) {
 		return app->wndProc(hWnd, msg, wParam, lParam);
 	}
+	else if (msg == WM_CREATE) {
+		// additional data for window procdeure
+		LPCREATESTRUCT createStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)createStruct->lpCreateParams);
+		app = (Win32App*)createStruct->lpCreateParams;
+		return app->wndProc(hWnd, msg, wParam, lParam);
+	}
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
 LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
+	case WM_CREATE:
+	{
+		_renderer->setHWnd(hWnd);
+		return 0;
+	}
 	case WM_PAINT:
 	{
 		if (_renderer != nullptr) {
@@ -99,8 +108,6 @@ LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 				_fpsCheck -= 1.0f;
 				SetWindowText(hWnd, newTitle);
 			}
-			if (_renderer->getHWnd() == NULL)
-				_renderer->setHWnd(_hWnd);
 
 			// rendering loop
 			_renderer->update(_deltaTime);

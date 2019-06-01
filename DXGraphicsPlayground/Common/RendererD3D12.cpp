@@ -7,6 +7,7 @@ RendererD3D12::RendererD3D12() {
 }
 
 RendererD3D12::~RendererD3D12() {
+	cleanupDevice();
 }
 
 void RendererD3D12::createDevice() {
@@ -19,8 +20,9 @@ void RendererD3D12::createDevice() {
 }
 
 void RendererD3D12::cleanupDevice() {
-	if (_device.Get() == nullptr) {
-		_cleanupDevice();
+	if (_device.Get() != nullptr) {
+		_waitForGpu();
+		CloseHandle(_fenceEvent);
 	}
 	else {
 		std::cout << "Device is already released." << std::endl;
@@ -48,7 +50,7 @@ void RendererD3D12::_initDevice() {
 	_factory = factory;
 
 	// Enumerate adapters 
-	IDXGIAdapter1* adapter = nullptr, * deviceAdapter = nullptr, * softwareAdapter = nullptr;
+	IDXGIAdapter1* adapter = nullptr, *deviceAdapter = nullptr, * softwareAdapter = nullptr;
 	for (int adapterIndex = 0; _factory->EnumAdapters1(adapterIndex, &adapter) != DXGI_ERROR_NOT_FOUND; adapterIndex++) {
 		DXGI_ADAPTER_DESC1 desc;
 		adapter->GetDesc1(&desc);
@@ -70,6 +72,11 @@ void RendererD3D12::_initDevice() {
 		_currentAdapter = softwareAdapter;
 	}
 
+	if (deviceAdapter != nullptr)
+		deviceAdapter->Release();
+	if (softwareAdapter != nullptr)
+		softwareAdapter->Release();
+
 	// Print adapter information
 	DXGI_ADAPTER_DESC1 desc;
 	_currentAdapter->GetDesc1(&desc);
@@ -78,8 +85,8 @@ void RendererD3D12::_initDevice() {
 	std::cout << "vendor : " << desc.VendorId << std::endl;
 	std::cout << "device : " << desc.DeviceId << std::endl;
 	std::wcout << "description : " << desc.Description << std::endl;
-	std::cout << "system memory : " << desc.DedicatedSystemMemory << std::endl;
-	std::cout << "video memory : " << desc.DedicatedVideoMemory << std::endl;
+	std::cout <<  "system memory : " << desc.DedicatedSystemMemory << " bytes" << std::endl;
+	std::cout << "video memory : " << desc.DedicatedVideoMemory << " bytes" << std::endl;
 	std::cout << std::endl;
 
 	// create render command queue
@@ -87,25 +94,18 @@ void RendererD3D12::_initDevice() {
 	_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&_queue));
 
 	// frame buffers
-	for (int i = 0; i < kFrameCount; i++) {
+	for (int i = 0; i < kMaxBuffersInFlight; i++) {
 		// allocator
 		_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_renderCommandAllocators[i]));
 
 		// commnad list
 		_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _renderCommandAllocators[i].Get(), nullptr, IID_PPV_ARGS(&_renderCommandLists[i]));
 		_renderCommandLists[i]->Close();
-
-		// fence
-		_fenceValues[i] = 0;
 	}
-	
-	// fence
-	_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
-	_fenceEvent = CreateEvent(nullptr, false, false, nullptr);
 }
 
 void RendererD3D12::_cleanupDevice() {
-	for (int i = 0; i < kFrameCount; i++) {
+	for (int i = 0; i < kMaxBuffersInFlight; i++) {
 		if (_renderCommandLists[i].Get() != nullptr) {
 			_renderCommandLists[i]->Release();
 			_renderCommandLists[i] = nullptr;
@@ -141,6 +141,7 @@ void RendererD3D12::setHWnd(HWND hWnd) {
 	RendererBase::setHWnd(hWnd);
 	_initSwapChain();
 	_initBackBuffers();
+	_initFences();
 }
 
 void RendererD3D12::_initSwapChain() {
@@ -151,7 +152,7 @@ void RendererD3D12::_initSwapChain() {
 		swapChainDesc.Height = 600;
 		swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-		swapChainDesc.BufferCount = kFrameCount;
+		swapChainDesc.BufferCount = kMaxBuffersInFlight;
 		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 		swapChainDesc.SampleDesc.Count = 1;
 		swapChainDesc.SampleDesc.Quality = 0;
@@ -174,14 +175,14 @@ void RendererD3D12::_initSwapChain() {
 
 	if (_renderTargetViewHeap.Get() == nullptr) {
 		D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-		heapDesc.NumDescriptors = kFrameCount;
+		heapDesc.NumDescriptors = kMaxBuffersInFlight;
 		heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		_device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&_renderTargetViewHeap));
 	}
 }
 
 void RendererD3D12::_cleanupSwapChain() {
-	for (int i = 0; i < kFrameCount; i++) {
+	for (int i = 0; i < kMaxBuffersInFlight; i++) {
 		if (_backBuffers[i].Get() != nullptr) {
 			_backBuffers[i]->Release();
 			_backBuffers[i] = nullptr;
@@ -204,7 +205,7 @@ void RendererD3D12::_initBackBuffers() {
 		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = _renderTargetViewHeap->GetCPUDescriptorHandleForHeapStart();
 		size_t rtvDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-		for (int i = 0; i < kFrameCount; i++) {
+		for (int i = 0; i < kMaxBuffersInFlight; i++) {
 			_swapChain->GetBuffer(i, IID_PPV_ARGS(&_backBuffers[i]));
 			_device->CreateRenderTargetView(_backBuffers[i].Get(), nullptr, rtvHandle);
 			rtvHandle.ptr += rtvDescriptorSize;
@@ -213,7 +214,49 @@ void RendererD3D12::_initBackBuffers() {
 }
 
 void RendererD3D12::_cleanupBackBuffers() {
+	// TODO
+}
 
+void RendererD3D12::_initFences() {
+	if (_fence.Get() == nullptr) {
+		for (int i = 0; i < kMaxBuffersInFlight; i++) {
+			_fenceValues[i] = 0;
+		}
+
+		// fence
+		_device->CreateFence(_fenceValues[_currentFrameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
+		_fenceValues[_currentFrameIndex]++;
+		_fenceEvent = CreateEvent(nullptr, false, false, nullptr);
+		_waitForGpu();
+	}
+}
+
+void RendererD3D12::_waitForGpu() {
+	// Signal fence value
+	const UINT64 currentFenceValue = _fenceValues[_currentFrameIndex];
+	_queue->Signal(_fence.Get(), currentFenceValue);
+
+	// Wait for completion
+	_fence->SetEventOnCompletion(currentFenceValue, _fenceEvent);
+	WaitForSingleObjectEx(_fenceEvent, INFINITE, false);
+	_fenceValues[_currentFrameIndex] = currentFenceValue + 1;
+}
+
+void RendererD3D12::_prepareNextBackBuffer() {
+	// Signal fence value
+	const UINT64 currentFenceValue = _fenceValues[_currentFrameIndex];
+	_queue->Signal(_fence.Get(), currentFenceValue);
+
+	// Get next back buffer index
+	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
+
+	// Wait for fence value
+	UINT64 completedFenceValue = _fence->GetCompletedValue();
+	if (_fence->GetCompletedValue() < _fenceValues[_currentFrameIndex]) {
+		_fence->SetEventOnCompletion(_fenceValues[_currentFrameIndex], _fenceEvent);
+		WaitForSingleObjectEx(_fenceEvent, INFINITE, false);
+	}
+	_fenceValues[_currentFrameIndex] = currentFenceValue + 1;
 }
 
 void RendererD3D12::update(float deltaTime) {
@@ -280,17 +323,6 @@ void RendererD3D12::endFrame() {
 	// Swap buffers
 	_swapChain->Present(1, 0);
 
-	// Signal fence value
-	const UINT64 currentFenceValue = _fenceValues[_currentFrameIndex];
-	_queue->Signal(_fence.Get(), currentFenceValue);
-
-	// Get next back buffer index
-	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
-
-	// Wait for fence value
-	if (_fence->GetCompletedValue() < _fenceValues[_currentFrameIndex]) {
-		_fence->SetEventOnCompletion(_fenceValues[_currentFrameIndex], _fenceEvent);
-		WaitForSingleObjectEx(_fenceEvent, INFINITE, false);
-	}
-	_fenceValues[_currentFrameIndex] = currentFenceValue + 1;
+	// Prepare next backbuffer...
+	_prepareNextBackBuffer();
 }

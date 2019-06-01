@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RendererBase.h"
+#include <dxgidebug.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <wrl/client.h>
@@ -10,7 +11,7 @@ using Microsoft::WRL::ComPtr;
 // Direct3D 12 Renderer base class.
 class RendererD3D12 : public RendererBase
 {
-	// Member functions
+	/* Member functions */
 public:
 	RendererD3D12();
 	~RendererD3D12();
@@ -31,6 +32,11 @@ public:
 	virtual void beginFrame() override;
 	virtual void endFrame() override;
 
+protected:
+	// Synchronization
+	void _waitForGpu();
+	void _prepareNextBackBuffer();
+
 private:
 	void _initDevice();
 	void _cleanupDevice();
@@ -40,10 +46,12 @@ private:
 	void _initBackBuffers();
 	void _cleanupBackBuffers();
 
-	// Member variables
+	void _initFences();
+
+	/* Member variables */
 private:
 	// constants
-	static constexpr int kFrameCount = 3;
+	static constexpr int kMaxBuffersInFlight = 3;
 
 	// Device
 	ComPtr<IDXGIFactory4> _factory;
@@ -52,15 +60,15 @@ private:
 
 	// Queue
 	ComPtr<ID3D12CommandQueue> _queue;
-	ComPtr<ID3D12CommandAllocator> _renderCommandAllocators[kFrameCount];
-	ComPtr<ID3D12GraphicsCommandList> _renderCommandLists[kFrameCount];
+	ComPtr<ID3D12CommandAllocator> _renderCommandAllocators[kMaxBuffersInFlight];
+	ComPtr<ID3D12GraphicsCommandList> _renderCommandLists[kMaxBuffersInFlight];
 
 	// Swap chain
 	ComPtr<IDXGISwapChain3> _swapChain;
-	ComPtr<ID3D12Resource> _backBuffers[kFrameCount];
+	ComPtr<ID3D12Resource> _backBuffers[kMaxBuffersInFlight];
 	ComPtr<ID3D12DescriptorHeap> _renderTargetViewHeap;
 	ComPtr<ID3D12Fence> _fence;
 	HANDLE _fenceEvent;
-	UINT64 _fenceValues[kFrameCount];
+	UINT64 _fenceValues[kMaxBuffersInFlight];
 	int _currentFrameIndex;
 };

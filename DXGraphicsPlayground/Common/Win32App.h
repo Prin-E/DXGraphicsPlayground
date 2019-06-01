@@ -39,7 +39,7 @@ private:
 	shared_ptr<RendererBase> _renderer;
 
 	// application time
-	LARGE_INTEGER _timePrev, _timeCurrent, _timeFrequency;
+	LARGE_INTEGER _timePrev = {}, _timeCurrent = {}, _timeFrequency = {};
 	float _timeSinceStartup = 0;
 	float _deltaTime = 0;
 	float _fps = 0;
