@@ -1,15 +1,17 @@
 #include "SimpleRenderer.h"
+#include "../Common/d3dx12.h"
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <string>
 #include <iostream>
+#include <pix3.h>
 
 using namespace DirectX;
 
 static XMFLOAT3 kPos[] = {
 	{ -0.5f, -0.5f,  0.0f },
-	{  0.5f, -0.5f,  0.0f },
-	{  0.0f,  0.5f,  0.0f }
+	{  0.0f,  0.5f,  0.0f },
+	{  0.5f, -0.5f,  0.0f }
 };
 
 void SimpleRenderer::init() {
@@ -25,8 +27,8 @@ void SimpleRenderer::_initAssets() {
 	
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
-	D3D12SerializeRootSignature(&signatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
-	_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&_rootSignature));
+	result = D3D12SerializeRootSignature(&signatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+	result = _device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&_rootSignature));
 
 	// Shader
 	ComPtr<ID3DBlob> vertexShader, pixelShader;
@@ -69,12 +71,17 @@ void SimpleRenderer::_initAssets() {
 	pipelineDesc.PS = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
 	pipelineDesc.SampleMask = UINT_MAX;
 	pipelineDesc.NumRenderTargets = 1;
-	pipelineDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	pipelineDesc.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM;
 	pipelineDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	pipelineDesc.SampleDesc.Count = 1;
 	pipelineDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
 	pipelineDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	pipelineDesc.RasterizerState.DepthClipEnable = true;
+	pipelineDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 	result = _device->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&_renderPipeline));
+	if (result != S_OK) {
+		std::cout << "Failed to create pipeline state! : " << result << std::endl;
+	}
 
 	// Vertex buffer
 	D3D12_HEAP_PROPERTIES vertexBufferHeapProps = {};
@@ -92,10 +99,16 @@ void SimpleRenderer::_initAssets() {
 	vertexBufferResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	result = _device->CreateCommittedResource(&vertexBufferHeapProps, D3D12_HEAP_FLAG_NONE, &vertexBufferResourceDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&_vertexBuffer));
+	if (result != S_OK) {
+		std::cout << "Failed to create committed resource! : " << result << std::endl;
+	}
 
 	UINT8* vertexBufferPointer = nullptr;
 	D3D12_RANGE bufferReadRange = { 0, 0 }, bufferWriteRange = { 0, sizeof(kPos) };
 	result = _vertexBuffer->Map(0, &bufferReadRange, reinterpret_cast<void**>(&vertexBufferPointer));
+	if (result != S_OK) {
+		std::cout << "Failed to copy vertex data! : " << result << std::endl;
+	}
 	memcpy(vertexBufferPointer, kPos, sizeof(kPos));
 	_vertexBuffer->Unmap(0, nullptr);
 
@@ -110,15 +123,13 @@ void SimpleRenderer::_cleanupAssets() {
 
 void SimpleRenderer::render() {
 	auto commandList = _getRenderCommandList();
-	D3D12_VIEWPORT viewport = { 0, 0, 800, 600 };
-	D3D12_RECT scissorRect = { 0, 0, 800, 600 };
-	
-	commandList->RSSetViewports(1, &viewport);
-	commandList->RSSetScissorRects(1, &scissorRect);
 	commandList->SetGraphicsRootSignature(_rootSignature.Get());
+
+	PIXBeginEvent(commandList, 0, "Draw");
 	commandList->SetPipelineState(_renderPipeline.Get());
 	commandList->IASetVertexBuffers(0, 1, &_vertexBufferView);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->DrawInstanced(3, 1, 0, 0);
+	commandList->DrawInstanced(_countof(kPos), 1, 0, 0);
 
+	PIXEndEvent(commandList);
 }

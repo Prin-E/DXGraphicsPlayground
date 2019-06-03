@@ -123,7 +123,7 @@ LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 	case WM_SIZE:
 	{
 		if (_renderer != nullptr) {
-			_renderer->resize(HIWORD(lParam), LOWORD(lParam));
+			_renderer->resize(LOWORD(lParam), HIWORD(lParam));
 		}
 		return 0;
 	}

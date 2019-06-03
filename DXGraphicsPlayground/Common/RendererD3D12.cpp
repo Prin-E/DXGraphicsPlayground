@@ -2,7 +2,7 @@
 #include "RendererD3D12.h"
 #include <iostream>
 
-RendererD3D12::RendererD3D12() {
+RendererD3D12::RendererD3D12() : _width(512), _height(512) {
 	createDevice();
 }
 
@@ -140,6 +140,7 @@ void RendererD3D12::_cleanupDevice() {
 }
 
 void RendererD3D12::setHWnd(HWND hWnd) {
+	_waitForGpu();
 	_cleanupSwapChain();
 	RendererBase::setHWnd(hWnd);
 	_initSwapChain();
@@ -151,8 +152,8 @@ void RendererD3D12::_initSwapChain() {
 	if (_swapChain.Get() == nullptr) {
 		HRESULT result = 0;
 		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-		swapChainDesc.Width = 800;
-		swapChainDesc.Height = 600;
+		swapChainDesc.Width = _width;
+		swapChainDesc.Height = _height;
 		swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 		swapChainDesc.BufferCount = kMaxBuffersInFlight;
@@ -172,8 +173,8 @@ void RendererD3D12::_initSwapChain() {
 				std::cerr << "Failed to convert DXGI Swap chain revision 4!" << std::endl;
 				return;
 			}
-			_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
 		}
+		_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
 	}
 
 	if (_renderTargetViewHeap.Get() == nullptr) {
@@ -185,12 +186,7 @@ void RendererD3D12::_initSwapChain() {
 }
 
 void RendererD3D12::_cleanupSwapChain() {
-	for (int i = 0; i < kMaxBuffersInFlight; i++) {
-		if (_backBuffers[i].Get() != nullptr) {
-			_backBuffers[i]->Release();
-			_backBuffers[i] = nullptr;
-		}
-	}
+	_cleanupBackBuffers();
 
 	if (_renderTargetViewHeap.Get() != nullptr) {
 		_renderTargetViewHeap->Release();
@@ -217,7 +213,10 @@ void RendererD3D12::_initBackBuffers() {
 }
 
 void RendererD3D12::_cleanupBackBuffers() {
-	// TODO
+	for (int i = 0; i < kMaxBuffersInFlight; i++) {
+		_backBuffers[i].Reset();
+		_fenceValues[i] = _fenceValues[_currentFrameIndex];
+	}
 }
 
 void RendererD3D12::_initFences() {
@@ -236,13 +235,15 @@ void RendererD3D12::_initFences() {
 
 void RendererD3D12::_waitForGpu() {
 	// Signal fence value
-	const UINT64 currentFenceValue = _fenceValues[_currentFrameIndex];
-	_queue->Signal(_fence.Get(), currentFenceValue);
+	if (_queue != nullptr && _fence != nullptr) {
+		const UINT64 currentFenceValue = _fenceValues[_currentFrameIndex];
+		_queue->Signal(_fence.Get(), currentFenceValue);
 
-	// Wait for completion
-	_fence->SetEventOnCompletion(currentFenceValue, _fenceEvent);
-	WaitForSingleObjectEx(_fenceEvent, INFINITE, false);
-	_fenceValues[_currentFrameIndex] = currentFenceValue + 1;
+		// Wait for completion
+		_fence->SetEventOnCompletion(currentFenceValue, _fenceEvent);
+		WaitForSingleObjectEx(_fenceEvent, INFINITE, false);
+		_fenceValues[_currentFrameIndex] = currentFenceValue + 1;
+	}
 }
 
 void RendererD3D12::_prepareNextBackBuffer() {
@@ -271,7 +272,15 @@ void RendererD3D12::render() {
 
 void RendererD3D12::resize(int newWidth, int newHeight) {
 	if (_swapChain != nullptr) {
+		_waitForGpu();
+		_cleanupBackBuffers();
 
+		_swapChain->ResizeBuffers(kMaxBuffersInFlight, newWidth, newHeight, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+		_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
+
+		_initBackBuffers();
+		_width = newWidth;
+		_height = newHeight;
 	}
 }
 
@@ -291,6 +300,12 @@ void RendererD3D12::beginFrame() {
 	barrier.Transition.pResource = _backBuffers[_currentFrameIndex].Get();
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	commandList->ResourceBarrier(1, &barrier);
+
+	// Set viewport rect
+	D3D12_VIEWPORT viewport = { 0, 0, _width, _height };
+	D3D12_RECT scissorRect = { 0, 0, _width, _height };
+	commandList->RSSetViewports(1, &viewport);
+	commandList->RSSetScissorRects(1, &scissorRect);
 
 	// Set render target
 	size_t renderTargetViewSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);

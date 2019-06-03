@@ -75,6 +75,7 @@ protected:
 	ComPtr<ID3D12Resource> _backBuffers[kMaxBuffersInFlight];
 	ComPtr<ID3D12DescriptorHeap> _renderTargetViewHeap;
 	ComPtr<ID3D12Fence> _fence;
+	int _width, _height;
 	HANDLE _fenceEvent;
 	UINT64 _fenceValues[kMaxBuffersInFlight];
 	int _currentFrameIndex;
