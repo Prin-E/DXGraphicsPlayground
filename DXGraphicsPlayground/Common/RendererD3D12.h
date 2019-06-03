@@ -25,6 +25,9 @@ public:
 	void createDevice();
 	void cleanupDevice();
 
+	// Initialization
+	virtual void init() override;
+
 	// Rendering
 	virtual void update(float deltaTime) override;
 	virtual void render() override;
@@ -36,6 +39,10 @@ protected:
 	// Synchronization
 	void _waitForGpu();
 	void _prepareNextBackBuffer();
+
+	// Properties
+	ID3D12GraphicsCommandList* _getRenderCommandList() const { return _renderCommandLists[_currentFrameIndex].Get(); }
+	ID3D12CommandAllocator* _getRenderCommandAllocator() const { return _renderCommandAllocators[_currentFrameIndex].Get(); }
 
 private:
 	void _initDevice();
@@ -49,7 +56,7 @@ private:
 	void _initFences();
 
 	/* Member variables */
-private:
+protected:
 	// constants
 	static constexpr int kMaxBuffersInFlight = 3;
 

@@ -12,6 +12,8 @@ public:
 	HWND getHWnd() const { return _hWnd; }
 	virtual void setHWnd(HWND hWnd) { _hWnd = hWnd; }
 
+	virtual void init() = 0;
+
 	virtual void update(float deltaTime) = 0;
 	virtual void render() = 0;
 	virtual void resize(int newWidth, int newHeight) = 0;

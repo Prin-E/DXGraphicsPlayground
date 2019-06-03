@@ -29,6 +29,9 @@ void RendererD3D12::cleanupDevice() {
 	}
 }
 
+void RendererD3D12::init() {
+}
+
 void RendererD3D12::_initDevice() {
 	ComPtr<IDXGIFactory4> factory = nullptr;
 	HRESULT result = 0;
@@ -294,13 +297,8 @@ void RendererD3D12::beginFrame() {
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = _renderTargetViewHeap->GetCPUDescriptorHandleForHeapStart();
 	rtvHandle.ptr += (renderTargetViewSize * _currentFrameIndex);
 	commandList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
-	static float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	static float clearColor[4] = { 0.2f, 0.4f, 1.0f, 0.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-
-	static float sign = 1.0f;
-	clearColor[1] += 0.0166f * sign;
-	if (clearColor[1] <= 0.0f || clearColor[1] >= 1.0f)
-		sign *= -1;
 }
 
 void RendererD3D12::endFrame() {

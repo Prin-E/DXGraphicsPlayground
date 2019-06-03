@@ -137,6 +137,7 @@ LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 void Win32App::setRenderer(RendererBase* newRenderer) {
 	_renderer.reset(newRenderer);
 	if (_renderer != nullptr) {
+		_renderer->init();
 		if (_hWnd != NULL)
 			_renderer->setHWnd(_hWnd);
 	}
