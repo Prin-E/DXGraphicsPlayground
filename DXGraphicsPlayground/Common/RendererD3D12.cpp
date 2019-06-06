@@ -23,14 +23,14 @@ void RendererD3D12::cleanupDevice() {
 	if (_device.Get() != nullptr) {
 		_waitForGpu();
 		CloseHandle(_fenceEvent);
+		// We don't need to release objects explicitly (ComPtrs do it automatically)
 	}
 	else {
 		std::cout << "Device is already released." << std::endl;
 	}
 }
 
-void RendererD3D12::init() {
-}
+void RendererD3D12::init() {}
 
 void RendererD3D12::_initDevice() {
 	ComPtr<IDXGIFactory4> factory = nullptr;
@@ -109,34 +109,14 @@ void RendererD3D12::_initDevice() {
 
 void RendererD3D12::_cleanupDevice() {
 	for (int i = 0; i < kMaxBuffersInFlight; i++) {
-		if (_renderCommandLists[i].Get() != nullptr) {
-			_renderCommandLists[i]->Release();
-			_renderCommandLists[i] = nullptr;
-		}
-		if (_renderCommandAllocators[i].Get() != nullptr) {
-			_renderCommandAllocators[i]->Release();
-			_renderCommandAllocators[i] = nullptr;
-		}
+		_renderCommandAllocators[i].Reset();
+		_renderCommandLists[i].Reset();
 	}
 
-	if (_queue.Get() != nullptr) {
-		_queue->Release();
-		_queue = nullptr;
-	}
-
-	if (_device.Get() != nullptr) {
-		_device->Release();
-		_device = nullptr;
-	}
-
-	if (_currentAdapter.Get() != nullptr) {
-		_currentAdapter->Release();
-		_currentAdapter = nullptr;
-	}
-
-	if (_factory.Get() != nullptr) {
-		_factory->Release();
-	}
+	_queue.Reset();
+	_device.Reset();
+	_currentAdapter.Reset();
+	_factory.Reset();
 }
 
 void RendererD3D12::setHWnd(HWND hWnd) {
@@ -187,16 +167,8 @@ void RendererD3D12::_initSwapChain() {
 
 void RendererD3D12::_cleanupSwapChain() {
 	_cleanupBackBuffers();
-
-	if (_renderTargetViewHeap.Get() != nullptr) {
-		_renderTargetViewHeap->Release();
-		_renderTargetViewHeap = nullptr;
-	}
-
-	if (_swapChain.Get() != nullptr) {
-		_swapChain->Release();
-		_swapChain = nullptr;
-	}
+	_renderTargetViewHeap.Reset();
+	_swapChain.Reset();
 }
 
 void RendererD3D12::_initBackBuffers() {
@@ -263,12 +235,9 @@ void RendererD3D12::_prepareNextBackBuffer() {
 	_fenceValues[_currentFrameIndex] = currentFenceValue + 1;
 }
 
-void RendererD3D12::update(float deltaTime) {
+void RendererD3D12::update(float deltaTime) {}
 
-}
-
-void RendererD3D12::render() {
-}
+void RendererD3D12::render() {}
 
 void RendererD3D12::resize(int newWidth, int newHeight) {
 	if (_swapChain != nullptr) {
@@ -302,7 +271,7 @@ void RendererD3D12::beginFrame() {
 	commandList->ResourceBarrier(1, &barrier);
 
 	// Set viewport rect
-	D3D12_VIEWPORT viewport = { 0, 0, _width, _height };
+	D3D12_VIEWPORT viewport = { 0, 0, static_cast<float>(_width), static_cast<float>(_height) };
 	D3D12_RECT scissorRect = { 0, 0, _width, _height };
 	commandList->RSSetViewports(1, &viewport);
 	commandList->RSSetScissorRects(1, &scissorRect);
@@ -312,7 +281,7 @@ void RendererD3D12::beginFrame() {
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = _renderTargetViewHeap->GetCPUDescriptorHandleForHeapStart();
 	rtvHandle.ptr += (renderTargetViewSize * _currentFrameIndex);
 	commandList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
-	static float clearColor[4] = { 0.2f, 0.4f, 1.0f, 0.0f };
+	static float clearColor[4] = { 0.2f, 0.2f, 0.2f, 0.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 }
 

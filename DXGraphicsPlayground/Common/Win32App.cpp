@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Win32App.h"
+#include "Time.h"
 #include "RendererBase.h"
 #include <cassert>
 
@@ -117,6 +118,9 @@ LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 
 			_timePrev = _timeCurrent;
 			_timeSinceStartup += _deltaTime;
+
+			Time::_deltaTime = _deltaTime;
+			Time::_timeSinceStartup = _timeSinceStartup;
 		}
 		return 0;
 	}
