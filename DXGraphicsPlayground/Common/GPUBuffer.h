@@ -15,7 +15,7 @@ class GPUBuffer {
 public:
 	GPUBuffer(ID3D12Device* device, const size_t bufferSize, StorageMode storageMode = StorageMode::Managed);
 	GPUBuffer(ID3D12Device* device, const size_t bufferSize, const size_t alignment, StorageMode storageMode = StorageMode::Managed);
-	~GPUBuffer() = default;
+	~GPUBuffer();
 
 	// Properties
 	ID3D12Resource* getResource() const { return _buffer.Get(); }
