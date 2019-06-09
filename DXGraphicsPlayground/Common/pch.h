@@ -9,5 +9,9 @@
 
 // 여기에 미리 컴파일하려는 헤더 추가
 #include "framework.h"
+#include <Windows.h>
+#include <d3d12.h>
+#include <d3dcompiler.h>
+#include <wrl.h>
 
 #endif //PCH_H
