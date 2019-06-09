@@ -64,6 +64,7 @@ protected:
 	ComPtr<IDXGIFactory4> _factory;
 	ComPtr<IDXGIAdapter1> _currentAdapter;
 	ComPtr<ID3D12Device> _device;
+	D3D_FEATURE_LEVEL _featureLevel;
 
 	// Queue
 	ComPtr<ID3D12CommandQueue> _queue;

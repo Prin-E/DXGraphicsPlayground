@@ -65,14 +65,26 @@ void RendererD3D12::_initDevice() {
 
 	// Create device
 	if (deviceAdapter != nullptr) {
-		result = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&_device));
-		if (result >= 0)
-			_currentAdapter = deviceAdapter;
+		D3D_FEATURE_LEVEL featureLevels[] = {
+			D3D_FEATURE_LEVEL_12_0,
+			D3D_FEATURE_LEVEL_11_1,
+			D3D_FEATURE_LEVEL_11_0
+		};
+
+		for (int i = 0; i < _countof(featureLevels); i++) {
+			result = D3D12CreateDevice(adapter, featureLevels[i], IID_PPV_ARGS(&_device));
+			if (result >= 0) {
+				_currentAdapter = deviceAdapter;
+				_featureLevel = featureLevels[i];
+				break;
+			}
+		}
 	}
 	if (deviceAdapter == nullptr || result < 0) {
 		// Create software device (fallback)
 		result = D3D12CreateDevice(softwareAdapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&_device));
 		_currentAdapter = softwareAdapter;
+		_featureLevel = D3D_FEATURE_LEVEL_12_0;
 	}
 
 	if (deviceAdapter != nullptr)
@@ -84,6 +96,7 @@ void RendererD3D12::_initDevice() {
 	DXGI_ADAPTER_DESC1 desc;
 	_currentAdapter->GetDesc1(&desc);
 
+	std::cout << "Feature Level : " << _featureLevel << std::endl;
 	std::cout << "Adapter information..." << std::endl;
 	std::cout << "vendor : " << desc.VendorId << std::endl;
 	std::cout << "device : " << desc.DeviceId << std::endl;
