@@ -7,6 +7,7 @@ cbuffer cbObjectInfo : register(b0)
 struct FragmentInput {
 	float4 pos : SV_POSITION;
 	float3 color : COLOR;
+	float2 uv : TEXCOORD;
 };
 
 FragmentInput main(float3 pos : POSITION, float3 color : COLOR)
@@ -16,5 +17,6 @@ FragmentInput main(float3 pos : POSITION, float3 color : COLOR)
 	result.pos = mul(result.pos, rotation);
 	result.pos = mul(result.pos, projection);
 	result.color = color;
+	result.uv = (0.5 * (pos + 1.0)).xy;
 	return result;
 }

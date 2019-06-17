@@ -13,6 +13,7 @@ RendererD3D12::~RendererD3D12() {
 void RendererD3D12::createDevice() {
 	if (_device.Get() == nullptr) {
 		_initDevice();
+		_initFences();
 	}
 	else {
 		std::cout << "Device is already created." << std::endl;
@@ -138,7 +139,6 @@ void RendererD3D12::setHWnd(HWND hWnd) {
 	RendererBase::setHWnd(hWnd);
 	_initSwapChain();
 	_initBackBuffers();
-	_initFences();
 }
 
 void RendererD3D12::_initSwapChain() {
@@ -214,7 +214,6 @@ void RendererD3D12::_initFences() {
 		_device->CreateFence(_fenceValues[_currentFrameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
 		_fenceValues[_currentFrameIndex]++;
 		_fenceEvent = CreateEvent(nullptr, false, false, nullptr);
-		_waitForGpu();
 	}
 }
 
@@ -269,10 +268,11 @@ void RendererD3D12::resize(int newWidth, int newHeight) {
 void RendererD3D12::beginFrame() {
 	auto commandAllocator = _renderCommandAllocators[_currentFrameIndex];
 	auto commandList = _renderCommandLists[_currentFrameIndex];
+	HRESULT result = S_OK;
 
 	// Reset allocator and command list
-	commandAllocator->Reset();
-	commandList->Reset(commandAllocator.Get(), nullptr);
+	result = commandAllocator->Reset();
+	result = commandList->Reset(commandAllocator.Get(), nullptr);
 
 	// set ready to be a render target state
 	D3D12_RESOURCE_BARRIER barrier = {};

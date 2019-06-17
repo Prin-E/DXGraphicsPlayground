@@ -163,6 +163,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="RendererBase.h" />
     <ClInclude Include="RendererD3D12.h" />
+    <ClInclude Include="ResourceUploader.h" />
     <ClInclude Include="Time.h" />
     <ClInclude Include="Win32App.h" />
   </ItemGroup>
@@ -177,6 +178,7 @@
     </ClCompile>
     <ClCompile Include="RendererBase.cpp" />
     <ClCompile Include="RendererD3D12.cpp" />
+    <ClCompile Include="ResourceUploader.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="Win32App.cpp" />
   </ItemGroup>

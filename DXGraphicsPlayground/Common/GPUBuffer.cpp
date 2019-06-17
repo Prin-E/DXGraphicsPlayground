@@ -5,7 +5,7 @@
 
 GPUBuffer::GPUBuffer(ID3D12Device* device, const size_t bufferSize, StorageMode storageMode) : GPUBuffer(device, bufferSize, 0, storageMode) { }
 
-GPUBuffer::GPUBuffer(ID3D12Device* device, const size_t bufferSize, const size_t alignment, StorageMode storageMode) {
+GPUBuffer::GPUBuffer(ID3D12Device* device, const size_t bufferSize, const size_t alignment, StorageMode storageMode) : _bufferPointer(nullptr), _open(false) {
 	assert(device != nullptr && "Device is null.");
 
 	// adjust buffer size with alignment
@@ -35,7 +35,7 @@ GPUBuffer::GPUBuffer(ID3D12Device* device, const size_t bufferSize, const size_t
 	resourceDesc.SampleDesc.Count = 1;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	
-	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS, &resourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&_buffer));
+	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&_buffer));
 	_storageMode = storageMode;
 }
 
@@ -64,7 +64,8 @@ bool GPUBuffer::open() {
 
 void GPUBuffer::close() {
 	if (_open) {
-		_buffer->Unmap(0, nullptr);
+		D3D12_RANGE writeRange{ 0, _alignedBufferSize };
+		_buffer->Unmap(0, &writeRange);
 		_open = false;
 	}
 }

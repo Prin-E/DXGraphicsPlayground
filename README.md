@@ -8,7 +8,7 @@ This workspace contains subprojects for testing DirectX features.
 
 ## D3D12Simple
 
-<img src="./Screenshots/D3D12Simple.png" alt="D3D12Simple" width="640" height="480">
+<img src="./Screenshots/D3D12Simple.png" alt="D3D12Simple" width="626" height="473">
 
 * Single window and simple triangle drawing.
 
