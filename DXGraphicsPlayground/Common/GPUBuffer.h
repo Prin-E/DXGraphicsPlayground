@@ -1,7 +1,6 @@
 #pragma once
 
 #include "pch.h"
-#include <wrl.h>
 #include <string>
 
 using Microsoft::WRL::ComPtr;

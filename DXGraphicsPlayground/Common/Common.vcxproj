@@ -159,6 +159,7 @@
   <ItemGroup>
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GBuffer.h" />
     <ClInclude Include="GPUBuffer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RendererBase.h" />
@@ -169,6 +170,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common.cpp" />
+    <ClCompile Include="GBuffer.cpp" />
     <ClCompile Include="GPUBuffer.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
