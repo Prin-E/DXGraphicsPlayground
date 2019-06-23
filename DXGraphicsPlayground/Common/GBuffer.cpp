@@ -147,9 +147,6 @@ void GBuffer::makeRootSignatures() {
 	assert(result >= 0 && "Can't serialize root signature!");
 	result = _device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&_lightingRootSignature));
 	assert(result >= 0 && "Can't create root signature!");
-
-	ID3D12GraphicsCommandList *cmdList;
-	cmdList->SetGraphicsRootDescriptorTable
 }
 
 void GBuffer::resize(size_t newWidth, size_t newHeight) {
