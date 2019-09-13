@@ -73,7 +73,7 @@ void RendererD3D12::_initDevice() {
 		};
 
 		for (int i = 0; i < _countof(featureLevels); i++) {
-			result = D3D12CreateDevice(adapter, featureLevels[i], IID_PPV_ARGS(&_device));
+			result = D3D12CreateDevice(deviceAdapter, featureLevels[i], IID_PPV_ARGS(&_device));
 			if (result >= 0) {
 				_currentAdapter = deviceAdapter;
 				_featureLevel = featureLevels[i];
