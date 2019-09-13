@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "RendererD3D12.h"
+#include "D3DInternalUtils.h"
 #include <iostream>
 
 RendererD3D12::RendererD3D12() : _width(512), _height(512) {
@@ -97,14 +98,26 @@ void RendererD3D12::_initDevice() {
 	DXGI_ADAPTER_DESC1 desc;
 	_currentAdapter->GetDesc1(&desc);
 
-	std::cout << "Feature Level : " << _featureLevel << std::endl;
-	std::cout << "Adapter information..." << std::endl;
-	std::cout << "vendor : " << desc.VendorId << std::endl;
-	std::cout << "device : " << desc.DeviceId << std::endl;
-	std::wcout << "description : " << desc.Description << std::endl;
-	std::cout <<  "system memory : " << desc.DedicatedSystemMemory << " bytes" << std::endl;
-	std::cout << "video memory : " << desc.DedicatedVideoMemory << " bytes" << std::endl;
+	struct thousands_sep : std::numpunct<char> {
+		char do_thousands_sep()   const { return ','; }
+		std::string do_grouping() const { return "\3"; }
+	};
+	std::ios oldstate{ nullptr };
+	oldstate.copyfmt(std::cout);
+	std::cout << "Feature Level : " << FeatureLevelToString(_featureLevel) << std::endl;
+	std::cout << "Adapter Info" << std::endl;
+
+	std::cout << std::hex;
+	std::cout << "- vendor : 0x" << desc.VendorId << std::endl;
+	std::cout << "- device : 0x" << desc.DeviceId << std::endl;
+	std::wcout << "- description : " << desc.Description << std::endl;
+
+	std::cout.imbue(std::locale(std::cout.getloc(), new thousands_sep));
+	std::cout << std::dec;
+	std::cout << "- system memory : " << std::dec << desc.DedicatedSystemMemory << " bytes" << std::endl;
+	std::cout << "- video memory : " << desc.DedicatedVideoMemory << " bytes" << std::endl;
 	std::cout << std::endl;
+	std::cout.copyfmt(oldstate);
 
 	// create render command queue
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};

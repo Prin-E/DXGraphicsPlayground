@@ -32,8 +32,8 @@ void GBuffer::makeGBufferResources() {
 
 	D3D12_RESOURCE_DESC resourceDesc{};
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resourceDesc.Width = _width;
-	resourceDesc.Height = _height;
+	resourceDesc.Width = (UINT)_width;
+	resourceDesc.Height = (UINT)_height;
 	resourceDesc.DepthOrArraySize = 1;
 	resourceDesc.MipLevels = 1;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;

@@ -28,7 +28,7 @@ void ResourceUploader::updateSubresource(ID3D12GraphicsCommandList* commandList,
 			// texture's row pitch is different with buffer's row pitch. so we need to copy each rows manually.
 			size_t srcRowPitch = length / destFootprint.Footprint.Height;
 			size_t rowPitch = destFootprint.Footprint.RowPitch;
-			for (int i = 0; i < destFootprint.Footprint.Height; i++) {
+			for (UINT i = 0; i < destFootprint.Footprint.Height; i++) {
 				_uploadBuffer->copy(reinterpret_cast<UINT8*>(ptr) + srcRowPitch * i, srcRowPitch, rowPitch * i);
 			}
 		}
