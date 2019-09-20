@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.572
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29201.188
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Common", "Common\Common.vcxproj", "{533ACE75-AC6E-4E33-9D7D-42F13B979F72}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12TileDeferred", "D3D12TileDeferred\D3D12TileDeferred.vcxproj", "{8C7500EF-773F-4FA0-91F0-0119693FEDFD}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D11Simple", "D3D11Simple\D3D11Simple.vcxproj", "{D96BB2D3-26BD-49D7-A197-B93ACF0D3A7B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D11Terrain", "D3D11Terrain\D3D11Terrain.vcxproj", "{208B4006-DF60-4745-99DD-8AC864478B8C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,14 @@ Global
 		{D96BB2D3-26BD-49D7-A197-B93ACF0D3A7B}.Release|x64.Build.0 = Release|x64
 		{D96BB2D3-26BD-49D7-A197-B93ACF0D3A7B}.Release|x86.ActiveCfg = Release|Win32
 		{D96BB2D3-26BD-49D7-A197-B93ACF0D3A7B}.Release|x86.Build.0 = Release|Win32
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Debug|x64.ActiveCfg = Debug|x64
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Debug|x64.Build.0 = Debug|x64
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Debug|x86.ActiveCfg = Debug|Win32
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Debug|x86.Build.0 = Debug|Win32
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Release|x64.ActiveCfg = Release|x64
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Release|x64.Build.0 = Release|x64
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Release|x86.ActiveCfg = Release|Win32
+		{208B4006-DF60-4745-99DD-8AC864478B8C}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -20,7 +20,7 @@ static VertexInfo kVertices[] = {
 };
 
 _declspec(align(256)) struct ObjectInfo {
-	XMMATRIX rotation;
+	XMMATRIX view;
 	XMMATRIX projection;
 };
 
@@ -246,7 +246,7 @@ void SimpleRenderer::_cleanupAssets() {
 void SimpleRenderer::update(float deltaTime) {
 	float aspectRatio = _width / (float)_height;
 	ObjectInfo info = {};
-	info.rotation = XMMatrixTranspose(XMMatrixRotationZ(Time::getTimeSinceStartup()));
+	info.view = XMMatrixTranspose(XMMatrixRotationZ(Time::getTimeSinceStartup()));
 	info.projection = XMMatrixTranspose(XMMatrixOrthographicLH(2.0f * aspectRatio, 2.0f, -1.0f, 1.0f));
 	_uniformBuffer->copy(&info, sizeof(ObjectInfo), _currentFrameIndex * sizeof(ObjectInfo));
 }

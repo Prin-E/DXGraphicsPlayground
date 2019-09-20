@@ -11,5 +11,5 @@ float4 main(FragmentInput input) : SV_TARGET
 {
 	float4 tc = tex.Sample(s, input.uv);
 	float4 outColor = float4(input.color, 1.0);
-	return outColor;
+	return tc;
 }

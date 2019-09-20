@@ -37,6 +37,7 @@ public:
 private:
 	void _initDevice();
 	void _cleanupDevice();
+	void _initDefaultAssets();
 
 	void _initSwapChain();
 	void _cleanupSwapChain();
@@ -57,9 +58,14 @@ protected:
 	// Context
 	ComPtr<ID3D11DeviceContext> _context;
 
-	// Swap Cahin
+	// Swap Chain
 	ComPtr<IDXGISwapChain> _swapChain;
 	ComPtr<ID3D11RenderTargetView> _renderTargetViews[kMaxBuffersInFlight];
+
+	// Depth Stencil
+	ComPtr<ID3D11DepthStencilState> _depthStencilState;
+	ComPtr<ID3D11Texture2D> _depthStencilTexture;
+	ComPtr<ID3D11DepthStencilView> _depthStencilView;
 	int _width, _height;
 	int _currentFrameIndex;
 };

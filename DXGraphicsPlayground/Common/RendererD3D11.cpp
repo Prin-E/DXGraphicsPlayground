@@ -14,6 +14,7 @@ RendererD3D11::~RendererD3D11() {
 void RendererD3D11::createDevice() {
 	if (_device.Get() == nullptr) {
 		_initDevice();
+		_initDefaultAssets();
 	}
 	else {
 		std::cout << "Device is already created." << std::endl;
@@ -30,6 +31,25 @@ void RendererD3D11::cleanupDevice() {
 }
 
 void RendererD3D11::init() {}
+
+void RendererD3D11::_initDefaultAssets() {
+	HRESULT result = S_OK;
+	
+	// Depth Stencil
+	D3D11_DEPTH_STENCIL_DESC depthStencilDesc = {};
+	depthStencilDesc.DepthEnable = true;
+	depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc.StencilEnable = false;
+	depthStencilDesc.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+	depthStencilDesc.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+
+	result = _device->CreateDepthStencilState(&depthStencilDesc, &_depthStencilState);
+	if (result != S_OK) {
+		std::cerr << "Failed to create depth stencil state!" << std::endl;
+		return;
+	}
+}
 
 void RendererD3D11::_initDevice() {
 	ComPtr<IDXGIFactory1> factory = nullptr;
@@ -157,9 +177,10 @@ void RendererD3D11::_cleanupSwapChain() {
 
 void RendererD3D11::_initBackBuffers() {
 	if (_swapChain.Get() != nullptr) {
+		HRESULT result = S_OK;
 		for (int i = 0; i < kMaxBuffersInFlight; i++) {
 			ID3D11Texture2D *backBuffer = nullptr;
-			HRESULT result = _swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer));
+			result = _swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer));
 			if (result == S_OK) {
 				D3D11_RENDER_TARGET_VIEW_DESC desc{};
 				desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
@@ -175,6 +196,27 @@ void RendererD3D11::_initBackBuffers() {
 				std::cerr << "Failed to query back buffer #" << i << "!" << std::endl;
 			}
 		}
+
+		// Depth Stencil
+		D3D11_TEXTURE2D_DESC depthStencilTextureDesc = {};
+		depthStencilTextureDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		depthStencilTextureDesc.Usage = D3D11_USAGE_DEFAULT;
+		depthStencilTextureDesc.Width = _width;
+		depthStencilTextureDesc.Height = _height;
+		depthStencilTextureDesc.ArraySize = 1;
+		depthStencilTextureDesc.SampleDesc.Count = 1;
+		depthStencilTextureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		result = _device->CreateTexture2D(&depthStencilTextureDesc, nullptr, &_depthStencilTexture);
+		if (result != S_OK) {
+			std::cerr << "Failed to create depth stencil texture!" << std::endl;
+		}
+
+		D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc = {};
+		depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		result = _device->CreateDepthStencilView(_depthStencilTexture.Get(), &depthStencilViewDesc, &_depthStencilView);
+		if (result != S_OK) {
+			std::cerr << "Failed to create depth stencil view!" << std::endl;
+		}
 	}
 }
 
@@ -182,6 +224,8 @@ void RendererD3D11::_cleanupBackBuffers() {
 	for (int i = 0; i < kMaxBuffersInFlight; i++) {
 		_renderTargetViews[i].Reset();
 	}
+	_depthStencilView.Reset();
+	_depthStencilTexture.Reset();
 }
 
 void RendererD3D11::update(float deltaTime) {}
@@ -192,25 +236,26 @@ void RendererD3D11::resize(int newWidth, int newHeight) {
 	if (_swapChain != nullptr) {
 		_cleanupBackBuffers();
 
-		_swapChain->ResizeBuffers(kMaxBuffersInFlight, newWidth, newHeight, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
-
-		_initBackBuffers();
 		_width = newWidth;
 		_height = newHeight;
+		_swapChain->ResizeBuffers(kMaxBuffersInFlight, newWidth, newHeight, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+		_initBackBuffers();
 	}
 }
 
 void RendererD3D11::beginFrame() {
 	// Set viewport rect
-	D3D11_VIEWPORT viewport = { 0, 0, static_cast<float>(_width), static_cast<float>(_height) };
+	D3D11_VIEWPORT viewport = { 0, 0, static_cast<float>(_width), static_cast<float>(_height), 0, 1 };
 	D3D11_RECT scissorRect = { 0, 0, _width, _height };
 	_context->RSSetViewports(1, &viewport);
 	_context->RSSetScissorRects(1, &scissorRect);
 
 	// Set render target
-	_context->OMSetRenderTargets(1, _renderTargetViews[_currentFrameIndex].GetAddressOf(), nullptr);
+	_context->OMSetRenderTargets(1, _renderTargetViews[_currentFrameIndex].GetAddressOf(), _depthStencilView.Get());
+	_context->OMSetDepthStencilState(_depthStencilState.Get(), 0);
 	static float clearColor[4] = { 0.2f, 0.2f, 0.2f, 0.0f };
 	_context->ClearRenderTargetView(_renderTargetViews[_currentFrameIndex].Get(), clearColor);
+	_context->ClearDepthStencilView(_depthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 }
 
 void RendererD3D11::endFrame() {
