@@ -7,7 +7,7 @@ cbuffer cbObjectInfo : register(b0)
 };
 
 struct VertexOut {
-	float4 pos : POSITION;
+	float4 pos : SV_POSITION;
 	float3 color : COLOR;
 	float2 uv : TEXCOORD;
 };

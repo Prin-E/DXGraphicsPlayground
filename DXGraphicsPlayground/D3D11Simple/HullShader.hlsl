@@ -1,13 +1,13 @@
 struct VertexOut
 {
-	float4 pos : POSITION;
+	float4 pos : SV_POSITION;
 	float3 color : COLOR;
 	float2 uv : TEXCOORD;
 };
 
 struct HullControlPointOut
 {
-	float4 pos : POSITION;
+	float4 pos : SV_POSITION;
 	float3 color : COLOR;
 	float2 uv : TEXCOORD;
 };
