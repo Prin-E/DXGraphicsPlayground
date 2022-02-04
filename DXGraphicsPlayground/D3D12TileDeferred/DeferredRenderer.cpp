@@ -5,5 +5,5 @@ void DeferredRenderer::init() {
 }
 
 void DeferredRenderer::_initAssets() {
-	_gBuffer = std::make_unique<GBuffer>(_device, _width, _height);
+	_gBuffer = std::make_unique<GBuffer>(_device.Get(), _width, _height);
 }

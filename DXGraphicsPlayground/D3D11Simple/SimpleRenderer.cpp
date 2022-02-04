@@ -144,7 +144,8 @@ void SimpleRenderer::_initAssets() {
 	textureDesc.Format = DXGI_FORMAT_R8_UNORM;
 	textureDesc.MipLevels = 1;
 	constexpr UINT textureSize = textureWidth * textureWidth;
-	UINT8 texturePointer[textureSize] = { };
+	//UINT8 texturePointer[textureSize] = { };
+	UINT8* texturePointer = new UINT8[textureSize];
 	_initNoiseTexture(texturePointer);
 	D3D11_SUBRESOURCE_DATA textureResourceData = {};
 	textureResourceData.pSysMem = texturePointer;
@@ -154,6 +155,7 @@ void SimpleRenderer::_initAssets() {
 		std::cerr << "Failed to create texture 2D!" << std::endl;
 		return;
 	}
+	delete[] texturePointer;
 
 	// shader resource view
 	D3D11_SHADER_RESOURCE_VIEW_DESC textureSRVDesc = {};
@@ -180,9 +182,13 @@ void SimpleRenderer::_initAssets() {
 
 void SimpleRenderer::_initNoiseTexture(UINT8 *texturePointer) {
 	// make simple noise textures!
-	UINT8 noiseDiv4[textureWidth * textureWidth / 16] = {};
-	UINT8 noiseDiv2[textureWidth * textureWidth / 4] = {};
-	UINT8 noise[textureWidth * textureWidth] = {};
+	UINT8* noiseDiv4 = new UINT8[textureWidth * textureWidth / 16];
+	UINT8* noiseDiv2 = new UINT8[textureWidth * textureWidth / 4];
+	UINT8* noise = new UINT8[textureWidth * textureWidth];
+
+//	UINT8 noiseDiv4[textureWidth * textureWidth / 16] = {};
+//	UINT8 noiseDiv2[textureWidth * textureWidth / 4] = {};
+//	UINT8 noise[textureWidth * textureWidth] = {};
 
 	for (int j = 0; j < textureWidth; j++) {
 		for (int i = 0; i < textureWidth; i++) {
@@ -207,6 +213,10 @@ void SimpleRenderer::_initNoiseTexture(UINT8 *texturePointer) {
 			texturePointer[j * textureWidth + i] += static_cast<UINT8>(lerp(l1, l2, (j % 4) / 4.0f) * 0.5f);
 		}
 	}
+
+	delete[] noiseDiv4;
+	delete[] noiseDiv2;
+	delete[] noise;
 }
 
 void SimpleRenderer::update(float deltaTime) {
@@ -215,7 +225,7 @@ void SimpleRenderer::update(float deltaTime) {
 
 	info.model = XMMatrixTranspose(XMMatrixRotationRollPitchYaw(0.0f, Time::getTimeSinceStartup(), 0.0f));
 	info.view = XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.4f, -1.0f, 0.0f), XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)));
-	info.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(60.0f / 180.0f * 3.14159, aspectRatio, 0.25f, 1000.0f));
+	info.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(60.0f / 180.0f * 3.14159265f, aspectRatio, 0.25f, 1000.0f));
 	info.time = std::fmin(Time::getTimeSinceStartup(), 100.0f);
 	D3D11_MAPPED_SUBRESOURCE uniformSubresource = {};
 	_context->Map(_uniformBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &uniformSubresource);

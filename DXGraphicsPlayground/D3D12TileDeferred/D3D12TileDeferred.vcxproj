@@ -128,6 +128,11 @@
   <ItemGroup>
     <ClInclude Include="DeferredRenderer.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.vcxproj">
+      <Project>{533ace75-ac6e-4e33-9d7d-42f13b979f72}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
