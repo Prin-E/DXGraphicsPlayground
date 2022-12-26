@@ -25,6 +25,7 @@ private:
 	D3D12_VERTEX_BUFFER_VIEW _vertexBufferView;
 
 	std::unique_ptr<GPUBuffer> _uniformBuffer;
+	std::unique_ptr<GPUBuffer> _commonBuffer;
 
 	ComPtr<ID3D12Resource> _texture;
 	ComPtr<ID3D12DescriptorHeap> _textureSRVHeap;

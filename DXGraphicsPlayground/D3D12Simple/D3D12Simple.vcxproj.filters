@@ -28,10 +28,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="VertexShader.hlsl">
+    <FxCompile Include="VertexShader_D3D12Simple.hlsl">
       <Filter>소스 파일</Filter>
     </FxCompile>
-    <FxCompile Include="PixelShader.hlsl">
+    <FxCompile Include="PixelShader_D3D12Simple.hlsl">
       <Filter>소스 파일</Filter>
     </FxCompile>
   </ItemGroup>

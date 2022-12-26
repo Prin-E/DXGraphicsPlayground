@@ -26,10 +26,12 @@ public:
 
 	// Initialization
 	virtual void init() override;
+	virtual void displayDidChange() override;
 
 	// Rendering
 	virtual void update(float deltaTime) override;
 	virtual void render() override;
+	virtual void move(int windowX, int windowY) override;
 	virtual void resize(int newWidth, int newHeight) override;
 	virtual void beginFrame() override;
 	virtual void endFrame() override;

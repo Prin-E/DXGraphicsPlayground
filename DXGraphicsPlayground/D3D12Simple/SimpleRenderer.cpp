@@ -6,17 +6,29 @@
 #include <iostream>
 #include <pix3.h>
 
+#define STB_IMAGE_IMPLEMENTATION 1
+#include "stb_image.h"
+
 using namespace DirectX;
 
 struct VertexInfo {
 	XMFLOAT3 pos;
 	XMFLOAT3 color;
+	XMFLOAT2 uv;
 };
 
 static VertexInfo kVertices[] = {
-	{ XMFLOAT3(-0.5f, -0.3f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-	{ XMFLOAT3( 0.0f,  0.6f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 0.5f, -0.3f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+	{ XMFLOAT3(-0.5f, -0.5f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-0.5f,  0.5f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f)  },
+	{ XMFLOAT3( 0.5f, -0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f)  },
+	{ XMFLOAT3( 0.5f, -0.5f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f)  },
+	{ XMFLOAT3(-0.5f,  0.5f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f)  },
+	{ XMFLOAT3( 0.5f,  0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f)  },
+};
+
+_declspec(align(256)) struct CommonInfo {
+	float normalizedSDRWhiteLevel;
+	bool isST2084Output;
 };
 
 _declspec(align(256)) struct ObjectInfo {
@@ -54,8 +66,8 @@ void SimpleRenderer::_initAssets() {
 		* (rootPathLastSlash + 1) = L'\0';
 
 	std::wstring vertexShaderPath(rootPath), pixelShaderPath(rootPath);
-	vertexShaderPath += L"VertexShader.cso";
-	pixelShaderPath += L"PixelShader.cso";
+	vertexShaderPath += L"VertexShader_D3D12Simple.cso";
+	pixelShaderPath += L"PixelShader_D3D12Simple.cso";
 
 	result = D3DReadFileToBlob(vertexShaderPath.c_str(), &vertexShader);
 	if (result != S_OK) {
@@ -71,7 +83,8 @@ void SimpleRenderer::_initAssets() {
 	// Input element
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, sizeof(XMFLOAT3), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, sizeof(XMFLOAT3), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, sizeof(XMFLOAT3) * 2, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	// Render Pipeline
@@ -89,6 +102,13 @@ void SimpleRenderer::_initAssets() {
 	pipelineDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	pipelineDesc.RasterizerState.DepthClipEnable = true;
 	pipelineDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	pipelineDesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
+	pipelineDesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	pipelineDesc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	pipelineDesc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	pipelineDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	pipelineDesc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
+	pipelineDesc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
 	result = _device->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&_renderPipeline));
 	if (result != S_OK) {
 		std::cout << "Failed to create pipeline state! : " << result << std::endl;
@@ -127,11 +147,46 @@ void SimpleRenderer::_initAssets() {
 	_vertexBufferView.SizeInBytes = sizeof(kVertices);
 	_vertexBufferView.StrideInBytes = sizeof(VertexInfo);
 
-	// Uniform buffer
+	// CBVs
+	_commonBuffer = std::make_unique<GPUBuffer>(_device.Get(), sizeof(CommonInfo) * kMaxBuffersInFlight);
 	_uniformBuffer = std::make_unique<GPUBuffer>(_device.Get(), sizeof(ObjectInfo) * kMaxBuffersInFlight);
 
-	// Map uniform buffer pointer (we don't unmap until app closes)
+	// Map buffer pointer (we don't unmap until app closes)
+	_commonBuffer->open();
 	_uniformBuffer->open();
+
+	// image flag
+	constexpr bool useSTBImage = false;
+
+	// STB image
+	struct
+	{
+		int x, y, channel;
+	} imginfo;
+	stbi_set_flip_vertically_on_load_thread(TRUE);
+	stbi_uc* stbimg = nullptr;
+	if (useSTBImage)
+		stbi_load("../Assets/Textures/PrinE2013.jpg", &imginfo.x, &imginfo.y, &imginfo.channel, 4);
+
+	// checkbox pattern
+	constexpr size_t checkboxSize = 128;
+	constexpr size_t checkboxCellWidth = 8;
+	const size_t checkboxTextureSize = checkboxSize * checkboxSize * 4;
+	UINT8* checkboxTexturePointer = new UINT8[checkboxTextureSize];
+	for (int j = 0; j < checkboxSize; j++) {
+		for (int i = 0; i < checkboxSize; i++) {
+			checkboxTexturePointer[(j * checkboxSize + i) * 4] = (i / checkboxCellWidth + j / checkboxCellWidth) % 2 ? 255 : 0;
+			checkboxTexturePointer[(j * checkboxSize + i) * 4 + 1] = (i / checkboxCellWidth + j / checkboxCellWidth) % 2 ? 255 : 0;
+			checkboxTexturePointer[(j * checkboxSize + i) * 4 + 2] = (i / checkboxCellWidth + j / checkboxCellWidth) % 2 ? 255 : 0;
+			checkboxTexturePointer[(j * checkboxSize + i) * 4 + 3] = 255;
+		}
+	}
+
+	UINT textureWidth = checkboxSize, textureHeight = checkboxSize;
+	if (useSTBImage) {
+		textureWidth = imginfo.x;
+		textureHeight = imginfo.y;
+	}
 
 	// texture
 	D3D12_HEAP_PROPERTIES textureHeapProps{};
@@ -141,9 +196,9 @@ void SimpleRenderer::_initAssets() {
 	textureHeapProps.VisibleNodeMask = 1;
 	D3D12_RESOURCE_DESC textureDesc{};
 	textureDesc.MipLevels = 1;
-	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	textureDesc.Width = 32;
-	textureDesc.Height = 32;
+	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	textureDesc.Width = textureWidth;
+	textureDesc.Height = textureHeight;
 	textureDesc.DepthOrArraySize = 1;
 	textureDesc.SampleDesc.Count = 1;
 	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -153,21 +208,15 @@ void SimpleRenderer::_initAssets() {
 	if (result != S_OK) {
 		std::cout << "Failed to map texture buffer! : " << result << std::endl;
 	}
-
-	const size_t textureSize = textureDesc.Width * textureDesc.Height * 4;
-	UINT8 *texturePointer = new UINT8[textureSize];
-	for (int j = 0; j < textureDesc.Height; j++) {
-		for (int i = 0; i < textureDesc.Width; i++) {
-			texturePointer[(j * textureDesc.Width + i) * 4] = (i + j) % 2 ? 255 : 0;
-			texturePointer[(j * textureDesc.Width + i) * 4 + 1] = (i + j) % 2 ? 255 : 0;
-			texturePointer[(j * textureDesc.Width + i) * 4 + 2] = (i + j) % 2 ? 255 : 0;
-			texturePointer[(j * textureDesc.Width + i) * 4 + 3] = 255;
-		}
-	}
 	
 	ResourceUploader textureUploader;
-	textureUploader.updateSubresource(commandList, 0, texturePointer, textureSize, _texture.Get());
-	delete [] texturePointer;
+	if (useSTBImage) {
+		textureUploader.updateSubresource(commandList, 0, stbimg, textureWidth * textureHeight * 4, _texture.Get());
+		stbi_image_free(stbimg);
+	}
+	else {
+		textureUploader.updateSubresource(commandList, 0, checkboxTexturePointer, textureWidth* textureHeight * 4, _texture.Get());
+	}
 
 	// texture SRV heap
 	D3D12_DESCRIPTOR_HEAP_DESC textureSRVHeapDesc{};
@@ -201,19 +250,24 @@ void SimpleRenderer::_initRootSignature() {
 	signatureSRVDescriptorTableRange.NumDescriptors = 1;
 	signatureSRVDescriptorTableRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	D3D12_ROOT_PARAMETER signatureParams[2]{};
+	D3D12_ROOT_PARAMETER signatureParams[3]{};
 	signatureParams[0].Descriptor.RegisterSpace = 0;
 	signatureParams[0].Descriptor.ShaderRegister = 0;
 	signatureParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	signatureParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	signatureParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-	signatureParams[1].DescriptorTable.NumDescriptorRanges = 1;
-	signatureParams[1].DescriptorTable.pDescriptorRanges = &signatureSRVDescriptorTableRange;
-	signatureParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	signatureParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	signatureParams[1].Descriptor.RegisterSpace = 0;
+	signatureParams[1].Descriptor.ShaderRegister = 1;
+	signatureParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	signatureParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+
+	signatureParams[2].DescriptorTable.NumDescriptorRanges = 1;
+	signatureParams[2].DescriptorTable.pDescriptorRanges = &signatureSRVDescriptorTableRange;
+	signatureParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	signatureParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	D3D12_STATIC_SAMPLER_DESC staticSamplers[1]{};
-	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	staticSamplers[0].AddressU = staticSamplers[0].AddressV = staticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	staticSamplers[0].MaxAnisotropy = 16;
 
@@ -238,17 +292,23 @@ void SimpleRenderer::_initRootSignature() {
 }
 
 void SimpleRenderer::_cleanupAssets() {
+	_commonBuffer->close();
 	_uniformBuffer->close();
 
 	// Because we use ComPtr reference, there's no need to release assets explicitly.
 }
 
 void SimpleRenderer::update(float deltaTime) {
+	CommonInfo commonInfo = {};
+	commonInfo.normalizedSDRWhiteLevel = _referenceSDRWhiteNits / 10000.0f;
+	commonInfo.isST2084Output = _isHDROutputSupported;
+	_commonBuffer->copy(&commonInfo, sizeof(CommonInfo), _currentFrameIndex * sizeof(CommonInfo));
+
 	float aspectRatio = _width / (float)_height;
-	ObjectInfo info = {};
-	info.view = XMMatrixTranspose(XMMatrixRotationZ(Time::getTimeSinceStartup()));
-	info.projection = XMMatrixTranspose(XMMatrixOrthographicLH(2.0f * aspectRatio, 2.0f, -1.0f, 1.0f));
-	_uniformBuffer->copy(&info, sizeof(ObjectInfo), _currentFrameIndex * sizeof(ObjectInfo));
+	ObjectInfo objInfo = {};
+	objInfo.view = XMMatrixTranspose(XMMatrixRotationZ(Time::getTimeSinceStartup()));
+	objInfo.projection = XMMatrixTranspose(XMMatrixOrthographicLH(2.0f * aspectRatio, 2.0f, -1.0f, 1.0f));
+	_uniformBuffer->copy(&objInfo, sizeof(ObjectInfo), _currentFrameIndex * sizeof(ObjectInfo));
 }
 
 void SimpleRenderer::render() {
@@ -262,10 +322,13 @@ void SimpleRenderer::render() {
 
 	ID3D12DescriptorHeap* descriptorHeaps[] = { _textureSRVHeap.Get() };
 	commandList->SetDescriptorHeaps(1, descriptorHeaps);
+	auto commonBufferAddress = _commonBuffer->getResource()->GetGPUVirtualAddress();
+	commonBufferAddress += (UINT64)_currentFrameIndex * sizeof(CommonInfo);
+	commandList->SetGraphicsRootConstantBufferView(0, commonBufferAddress);
 	auto uniformBufferAddress = _uniformBuffer->getResource()->GetGPUVirtualAddress();
 	uniformBufferAddress += (UINT64)_currentFrameIndex * sizeof(ObjectInfo);
-	commandList->SetGraphicsRootConstantBufferView(0, uniformBufferAddress);
-	commandList->SetGraphicsRootDescriptorTable(1, _textureSRVHeap->GetGPUDescriptorHandleForHeapStart());
+	commandList->SetGraphicsRootConstantBufferView(1, uniformBufferAddress);
+	commandList->SetGraphicsRootDescriptorTable(2, _textureSRVHeap->GetGPUDescriptorHandleForHeapStart());
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList->DrawInstanced(_countof(kVertices), 1, 0, 0);
 

@@ -28,16 +28,16 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="VertexShader.hlsl">
+    <FxCompile Include="VertexShader_D3D11Simple.hlsl">
       <Filter>소스 파일</Filter>
     </FxCompile>
-    <FxCompile Include="PixelShader.hlsl">
+    <FxCompile Include="PixelShader_D3D11Simple.hlsl">
       <Filter>소스 파일</Filter>
     </FxCompile>
-    <FxCompile Include="HullShader.hlsl">
+    <FxCompile Include="HullShader_D3D11Simple.hlsl">
       <Filter>소스 파일</Filter>
     </FxCompile>
-    <FxCompile Include="DomainShader.hlsl">
+    <FxCompile Include="DomainShader_D3D11Simple.hlsl">
       <Filter>소스 파일</Filter>
     </FxCompile>
   </ItemGroup>

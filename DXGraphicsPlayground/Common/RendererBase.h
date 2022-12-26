@@ -16,7 +16,9 @@ public:
 
 	virtual void update(float deltaTime) = 0;
 	virtual void render() = 0;
+	virtual void move(int windowX = -1, int windowY = -1) = 0;
 	virtual void resize(int newWidth, int newHeight) = 0;
+	virtual void displayDidChange() = 0;
 
 	virtual void beginFrame() = 0;
 	virtual void endFrame() = 0;

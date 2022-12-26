@@ -131,6 +131,22 @@ LRESULT CALLBACK Win32App::wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 		}
 		return 0;
 	}
+	case WM_MOVE:
+	case WM_MOVING:
+	case WM_SETFOCUS:
+	{
+		if (_renderer != nullptr) {
+			_renderer->move();
+		}
+		return 0;
+	}
+	case WM_DISPLAYCHANGE:
+	{
+		if (_renderer != nullptr) {
+			_renderer->displayDidChange();
+		}
+		return 0;
+	}
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;

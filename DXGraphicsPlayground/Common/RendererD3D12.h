@@ -27,10 +27,12 @@ public:
 
 	// Initialization
 	virtual void init() override;
+	virtual void displayDidChange() override;
 
 	// Rendering
 	virtual void update(float deltaTime) override;
 	virtual void render() override;
+	virtual void move(int windowX, int windowY) override;
 	virtual void resize(int newWidth, int newHeight) override;
 	virtual void beginFrame() override;
 	virtual void endFrame() override;
@@ -47,6 +49,7 @@ protected:
 private:
 	void _initDevice();
 	void _cleanupDevice();
+	void _createOrUpdateFactory();
 
 	void _initSwapChain();
 	void _cleanupSwapChain();
@@ -54,6 +57,7 @@ private:
 	void _cleanupBackBuffers();
 
 	void _initFences();
+	void _updateSDRWhiteLevel();
 
 	/* Member variables */
 protected:
@@ -80,4 +84,8 @@ protected:
 	HANDLE _fenceEvent;
 	UINT64 _fenceValues[kMaxBuffersInFlight];
 	int _currentFrameIndex;
+
+	// HDR
+	int _referenceSDRWhiteNits;
+	bool _isHDROutputSupported;
 };

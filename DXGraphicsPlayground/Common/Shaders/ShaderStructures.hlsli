@@ -1,5 +1,3 @@
-#pragma once
-
 cbuffer CameraProps : register(b1) {
 	float4x4 view;
 	float4x4 projection;

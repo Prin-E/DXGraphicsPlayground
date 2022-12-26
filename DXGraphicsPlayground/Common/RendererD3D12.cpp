@@ -2,8 +2,9 @@
 #include "RendererD3D12.h"
 #include "D3DInternalUtils.h"
 #include <iostream>
+#include <dxgi1_6.h>
 
-RendererD3D12::RendererD3D12() : _width(512), _height(512) {
+RendererD3D12::RendererD3D12() : _width(512), _height(512), _referenceSDRWhiteNits(80), _isHDROutputSupported(false) {
 	createDevice();
 }
 
@@ -34,28 +35,51 @@ void RendererD3D12::cleanupDevice() {
 
 void RendererD3D12::init() {}
 
+void RendererD3D12::displayDidChange() {
+	_waitForGpu();
+	_cleanupSwapChain();
+	_createOrUpdateFactory();
+	_updateSDRWhiteLevel();
+	_initSwapChain();
+	_initBackBuffers();
+}
+
+void RendererD3D12::_createOrUpdateFactory() {
+	HRESULT result = 0;
+
+	if (_factory == nullptr || _factory->IsCurrent() == false) {
+#if defined(_DEBUG)
+		if (_factory != nullptr && _factory->IsCurrent() == false) {
+			std::cout << "Updating DXGI Factory..." << std::endl;
+		}
+#endif
+
+		// Create factory
+		UINT factoryFlags = 0;
+
+#if defined(_DEBUG)
+		ComPtr<ID3D12Debug> debugController;
+		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
+			debugController->EnableDebugLayer();
+			factoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+		}
+#endif
+		result = CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&_factory));
+		if (result < 0) {
+			std::cerr << "Failed to create DXGI Factory!" << std::endl;
+		}
+	}
+}
+
 void RendererD3D12::_initDevice() {
 	ComPtr<IDXGIFactory4> factory = nullptr;
 	HRESULT result = 0;
 
 	// Create factory
-	UINT factoryFlags = 0;
-
-#if defined(_DEBUG)
-	ComPtr<ID3D12Debug> debugController;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
-		debugController->EnableDebugLayer();
-		factoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
-	}
-#endif
-	result = CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&factory));
-	if (result < 0) {
-		std::cerr << "Failed to create DXGI Factory!" << std::endl;
-	}
-	_factory = factory;
+	_createOrUpdateFactory();
 
 	// Enumerate adapters 
-	IDXGIAdapter1* adapter = nullptr, *deviceAdapter = nullptr, * softwareAdapter = nullptr;
+	IDXGIAdapter1* adapter = nullptr, * deviceAdapter = nullptr, * softwareAdapter = nullptr;
 	for (int adapterIndex = 0; _factory->EnumAdapters1(adapterIndex, &adapter) != DXGI_ERROR_NOT_FOUND; adapterIndex++) {
 		DXGI_ADAPTER_DESC1 desc;
 		adapter->GetDesc1(&desc);
@@ -150,17 +174,59 @@ void RendererD3D12::setHWnd(HWND hWnd) {
 	_waitForGpu();
 	_cleanupSwapChain();
 	RendererBase::setHWnd(hWnd);
+	_updateSDRWhiteLevel();
 	_initSwapChain();
 	_initBackBuffers();
 }
 
 void RendererD3D12::_initSwapChain() {
+	DXGI_COLOR_SPACE_TYPE colorSpaceType = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+	_isHDROutputSupported = false;
+
+	ComPtr<IDXGIAdapter1> adapter;
+	_factory->EnumAdapters1(0, &adapter);
+
+	if (adapter != nullptr) {
+		// Query outputs
+		UINT outputIndex = 0;
+		ComPtr<IDXGIOutput> output;
+		ComPtr<IDXGIOutput6> bestOutput6;
+
+		WINDOWPLACEMENT windowPlacement = {};
+		GetWindowPlacement(getHWnd(), &windowPlacement);
+
+		int maxIntersectionArea = 0;
+		while (adapter->EnumOutputs(outputIndex, &output) != DXGI_ERROR_NOT_FOUND) {
+			DXGI_OUTPUT_DESC outputDesc = {};
+			output->GetDesc(&outputDesc);
+
+			int intersectionAreaWidth = max(0, min(outputDesc.DesktopCoordinates.right, windowPlacement.rcNormalPosition.right) - max(outputDesc.DesktopCoordinates.left, windowPlacement.rcNormalPosition.left));
+			int intersectionAreaHeight = max(0, min(outputDesc.DesktopCoordinates.bottom, windowPlacement.rcNormalPosition.bottom) - max(outputDesc.DesktopCoordinates.top, windowPlacement.rcNormalPosition.top));
+
+			if (maxIntersectionArea < intersectionAreaWidth * intersectionAreaHeight) {
+				maxIntersectionArea = intersectionAreaWidth * intersectionAreaHeight;
+				output.As(&bestOutput6);
+			}
+
+			outputIndex++;
+		}
+
+		if (bestOutput6 != nullptr) {
+			DXGI_OUTPUT_DESC1 outputDesc1 = {};
+			bestOutput6->GetDesc1(&outputDesc1);
+
+			colorSpaceType = outputDesc1.ColorSpace;
+			_isHDROutputSupported = colorSpaceType == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
+		}
+	}
+
+
 	if (_swapChain.Get() == nullptr) {
 		HRESULT result = 0;
 		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 		swapChainDesc.Width = _width;
 		swapChainDesc.Height = _height;
-		swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		swapChainDesc.Format = _isHDROutputSupported ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
 		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 		swapChainDesc.BufferCount = kMaxBuffersInFlight;
 		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -181,6 +247,24 @@ void RendererD3D12::_initSwapChain() {
 			}
 		}
 		_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
+
+		if (_isHDROutputSupported) {
+			std::cerr << "Enabling ST2084 color space for HDR!" << std::endl;
+
+			DXGI_COLOR_SPACE_TYPE colorSpace = colorSpaceType;
+			UINT colorSpaceSupported = 0;
+			if (_swapChain->CheckColorSpaceSupport(colorSpace, &colorSpaceSupported) == S_OK)
+			{
+				if ((colorSpaceSupported & DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT) == DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT) {
+					HRESULT result = _swapChain->SetColorSpace1(colorSpace);
+				}
+				else
+					std::cerr << "Color space " << colorSpace << " is not presentable!" << std::endl;
+			}
+			else {
+				std::cerr << "Failed to check color space " << colorSpace << "!" << std::endl;
+			}
+		}
 	}
 
 	if (_renderTargetViewHeap.Get() == nullptr) {
@@ -230,6 +314,53 @@ void RendererD3D12::_initFences() {
 	}
 }
 
+void RendererD3D12::_updateSDRWhiteLevel() {
+	_referenceSDRWhiteNits = 80;
+
+	HMONITOR monitor = MonitorFromWindow(getHWnd(), 0);
+	MONITORINFOEX monitorInfo = {};
+	monitorInfo.cbSize = sizeof(MONITORINFOEX);
+	GetMonitorInfo(monitor, &monitorInfo);
+
+	UINT numPathArrayElements = 0, numModelInfoArrayElements = 0;
+	GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &numPathArrayElements, &numModelInfoArrayElements);
+
+	constexpr size_t numStacks = 16;
+	DISPLAYCONFIG_PATH_INFO pathInfos[numStacks];
+	DISPLAYCONFIG_MODE_INFO modeInfos[numStacks];
+	numPathArrayElements = min(numStacks, numPathArrayElements);
+	numModelInfoArrayElements = min(numStacks, numModelInfoArrayElements);
+	QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &numPathArrayElements, pathInfos, &numModelInfoArrayElements, modeInfos, nullptr);
+	for (UINT i = 0; i < numPathArrayElements; i++)
+	{
+		DISPLAYCONFIG_SOURCE_DEVICE_NAME deviceName = {};
+		deviceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+		deviceName.header.size = sizeof(DISPLAYCONFIG_SOURCE_DEVICE_NAME);
+		deviceName.header.adapterId = pathInfos[i].targetInfo.adapterId;
+		deviceName.header.id = pathInfos[i].sourceInfo.id;
+		if (DisplayConfigGetDeviceInfo(&deviceName.header) == ERROR_SUCCESS)
+		{
+			if (wcscmp(deviceName.viewGdiDeviceName, monitorInfo.szDevice) == 0)
+			{
+				DISPLAYCONFIG_SDR_WHITE_LEVEL whiteLevel = {};
+				whiteLevel.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL;
+				whiteLevel.header.size = sizeof(whiteLevel);
+				whiteLevel.header.adapterId = pathInfos[i].targetInfo.adapterId;
+				whiteLevel.header.id = pathInfos[i].targetInfo.id;
+				if (DisplayConfigGetDeviceInfo(&whiteLevel.header) == ERROR_SUCCESS)
+				{
+					volatile UINT sdr_white = whiteLevel.SDRWhiteLevel;
+					_referenceSDRWhiteNits = static_cast<UINT>(sdr_white / 1000.0f * 80.0f);
+				}
+				else
+				{
+					_referenceSDRWhiteNits = 80;
+				}
+			}
+		}
+	}
+}
+
 void RendererD3D12::_waitForGpu() {
 	// Signal fence value
 	if (_queue != nullptr && _fence != nullptr) {
@@ -264,13 +395,22 @@ void RendererD3D12::update(float deltaTime) {}
 
 void RendererD3D12::render() {}
 
+void RendererD3D12::move(int windowX, int windowY) {
+	if (_isHDROutputSupported) {
+		_updateSDRWhiteLevel();
+	}
+}
+
 void RendererD3D12::resize(int newWidth, int newHeight) {
 	if (_swapChain != nullptr) {
 		_waitForGpu();
 		_cleanupBackBuffers();
 
-		_swapChain->ResizeBuffers(kMaxBuffersInFlight, newWidth, newHeight, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+		_swapChain->ResizeBuffers(kMaxBuffersInFlight, newWidth, newHeight, _isHDROutputSupported ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
 		_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
+
+		if (_isHDROutputSupported)
+			_updateSDRWhiteLevel();
 
 		_initBackBuffers();
 		_width = newWidth;

@@ -52,10 +52,10 @@ void SimpleRenderer::_initAssets() {
 		* (rootPathLastSlash + 1) = L'\0';
 
 	std::wstring vertexShaderPath(rootPath), pixelShaderPath(rootPath), hullShaderPath(rootPath), domainShaderPath(rootPath);
-	vertexShaderPath += L"VertexShader.cso";
-	pixelShaderPath += L"PixelShader.cso";
-	hullShaderPath += L"HullShader.cso";
-	domainShaderPath += L"DomainShader.cso";
+	vertexShaderPath += L"VertexShader_D3D11Simple.cso";
+	pixelShaderPath += L"PixelShader_D3D11Simple.cso";
+	hullShaderPath += L"HullShader_D3D11Simple.cso";
+	domainShaderPath += L"DomainShader_D3D11Simple.cso";
 
 	result = D3DReadFileToBlob(vertexShaderPath.c_str(), &vertexShader);
 	if (result != S_OK) {

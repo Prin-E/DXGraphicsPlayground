@@ -32,6 +32,8 @@ void RendererD3D11::cleanupDevice() {
 
 void RendererD3D11::init() {}
 
+void RendererD3D11::displayDidChange() {}
+
 void RendererD3D11::_initDefaultAssets() {
 	HRESULT result = S_OK;
 	
@@ -231,6 +233,8 @@ void RendererD3D11::_cleanupBackBuffers() {
 void RendererD3D11::update(float deltaTime) {}
 
 void RendererD3D11::render() {}
+
+void RendererD3D11::move(int windowX, int windowY) {}
 
 void RendererD3D11::resize(int newWidth, int newHeight) {
 	if (_swapChain != nullptr) {
