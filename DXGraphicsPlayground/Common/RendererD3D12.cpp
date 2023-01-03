@@ -192,9 +192,12 @@ void RendererD3D12::_initSwapChain() {
 		ComPtr<IDXGIOutput> output;
 		ComPtr<IDXGIOutput6> bestOutput6;
 
+		// Window size
 		WINDOWPLACEMENT windowPlacement = {};
+		windowPlacement.length = sizeof(WINDOWPLACEMENT);
 		GetWindowPlacement(getHWnd(), &windowPlacement);
 
+		// Finds matching display output
 		int maxIntersectionArea = 0;
 		while (adapter->EnumOutputs(outputIndex, &output) != DXGI_ERROR_NOT_FOUND) {
 			DXGI_OUTPUT_DESC outputDesc = {};
@@ -220,7 +223,6 @@ void RendererD3D12::_initSwapChain() {
 		}
 	}
 
-
 	if (_swapChain.Get() == nullptr) {
 		HRESULT result = 0;
 		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
@@ -229,7 +231,7 @@ void RendererD3D12::_initSwapChain() {
 		swapChainDesc.Format = _isHDROutputSupported ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
 		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 		swapChainDesc.BufferCount = kMaxBuffersInFlight;
-		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_BACK_BUFFER;
 		swapChainDesc.SampleDesc.Count = 1;
 		swapChainDesc.SampleDesc.Quality = 0;
 		swapChainDesc.Scaling = DXGI_SCALING_STRETCH;

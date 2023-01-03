@@ -156,17 +156,19 @@ void SimpleRenderer::_initAssets() {
 	_uniformBuffer->open();
 
 	// image flag
+	// NOTE: set TRUE to load image from file!
 	constexpr bool useSTBImage = false;
 
 	// STB image
 	struct
 	{
 		int x, y, channel;
-	} imginfo;
+	} imginfo{};
 	stbi_set_flip_vertically_on_load_thread(TRUE);
 	stbi_uc* stbimg = nullptr;
-	if (useSTBImage)
-		stbi_load("../Assets/Textures/PrinE2013.jpg", &imginfo.x, &imginfo.y, &imginfo.channel, 4);
+	if (useSTBImage) {
+		stbimg = stbi_load("../Assets/Textures/PrinE2013.jpg", &imginfo.x, &imginfo.y, &imginfo.channel, 4);
+	}
 
 	// checkbox pattern
 	constexpr size_t checkboxSize = 128;
@@ -183,7 +185,7 @@ void SimpleRenderer::_initAssets() {
 	}
 
 	UINT textureWidth = checkboxSize, textureHeight = checkboxSize;
-	if (useSTBImage) {
+	if (stbimg != nullptr) {
 		textureWidth = imginfo.x;
 		textureHeight = imginfo.y;
 	}
@@ -210,7 +212,7 @@ void SimpleRenderer::_initAssets() {
 	}
 	
 	ResourceUploader textureUploader;
-	if (useSTBImage) {
+	if (stbimg != nullptr) {
 		textureUploader.updateSubresource(commandList, 0, stbimg, textureWidth * textureHeight * 4, _texture.Get());
 		stbi_image_free(stbimg);
 	}
